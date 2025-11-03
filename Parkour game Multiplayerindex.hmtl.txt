@@ -624,10 +624,14 @@
         modalCloseBtn.addEventListener('click', hideMessage);
 
         // --- Start ---
-        lobbyStatus.textContent = "Connecting to server...";
-        hostGameBtn.disabled = true;
-        joinGameBtn.disabled = true;
-        initializePeer();
+        
+        // Wait for the full page (including the PeerJS script) to load
+        window.onload = () => {
+            lobbyStatus.textContent = "Connecting to server...";
+            hostGameBtn.disabled = true;
+            joinGameBtn.disabled = true;
+            initializePeer();
+        };
 
     </script>
 </body>
