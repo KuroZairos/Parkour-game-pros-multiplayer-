@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parkour Ghost Race</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Use Inter font */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        /* Custom styles for the game */
+        #game-canvas {
+            display: block;
+            background: #000;
+            border-radius: 0.5rem;
+            border: 2px solid #4a5568;
+        }
+        /* Hide scrollbars */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        /* Ensure the lobby/game views take up the whole screen */
+        .view-container {
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Simple modal for messages */
+        .custom-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .custom-modal.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            color: #1a202c;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex items-center justify-center min-h-screen">
+
+    <!-- Lobby View -->
+    <div id="lobby-view" class="view-container flex flex-col items-center justify-center p-4">
+        <h1 class="text-5xl font-bold mb-6 text-blue-400">Parkour Ghost Race</h1>
+        <div class="bg-gray-800 p-8 rounded-lg shadow-2xl w-full max-w-md">
+            
+            <div class="mb-4">
+                <label for="user-id" class="block text-sm font-medium text-gray-300 mb-2">Your User ID (Share with friends):</label>
+                <input type="text" id="user-id" readonly class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" value="Connecting...">
+            </div>
+
+            <div class="mb-6">
+                <label for="game-id-input" class="block text-sm font-medium text-gray-300 mb-2">Game ID:</label>
+                <input type="text" id="game-id-input" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter Game ID to join">
+            </div>
+
+            <div class="flex space-x-4">
+                <button id="create-game-btn" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold p-3 rounded-lg shadow-lg transition duration-200">Create Game</button>
+                <button id="join-game-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold p-3 rounded-lg shadow-lg transition duration-200">Join Game</button>
+            </div>
+        </div>
+        <p class="mt-4 text-gray-400 text-sm">Create a new game or enter a friend's Game ID to join their race.</p>
+    </div>
+
+    <!-- Game View -->
+    <div id="game-view" class="view-container flex-col items-center justify-center p-4 hidden">
+        <div class="w-full max-w-6xl flex justify-between items-center mb-2 px-2">
+            <div class="flex space-x-4">
+                <button id="leave-game-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">&larr; Lobby</button>
+                <button id="reset-level-btn" class="bg-yellow-600 hover:bg-yellow-700 text-black font-bold py-2 px-4 rounded-lg shadow-md transition duration-200">Reset Level</button>
+            </div>
+            <div class="text-right">
+                <div id="level-display" class="text-3xl font-bold text-white">Level: 1</div>
+                <div id="game-id-display" class="text-sm text-gray-400">Game: ...</div>
+            </div>
+        </div>
+        <canvas id="game-canvas" width="1200" height="700"></canvas>
+    </div>
+
+    <!-- Custom Modal for Messages -->
+    <div id="message-modal" class="custom-modal">
+        <div class="modal-content">
+            <h2 id="modal-title" class="text-2xl font-bold mb-4">Message</h2>
+            <p id="modal-message" class="mb-6">This is a message.</p>
+            <button id="modal-close-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg">OK</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Firebase Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // ... existing code ... -->
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =======================================================================
+        // --- PASTE YOUR FIREBASE CONFIG HERE ---
+        // =======================================================================
+        // 1. Create a free Firebase project.
+        // 2. Click the Web icon (</>) to create a new Web App.
+        // 3. Copy the 'firebaseConfig' object and paste it below, replacing this.
+        
+        const userFirebaseConfig = {
+          apiKey: "AIzaSyDV-AnkAWKuJ-Cfi91RliLe0OJfkf40ZWE",
+          authDomain: "parkour-game-pro-35185.firebaseapp.com",
+          projectId: "parkour-game-pro-35185",
+          storageBucket: "parkour-game-pro-35185.firebasestorage.app",
+          messagingSenderId: "1025387249940",
+          appId: "1:1025387249940:web:c33f8dcb9daf90bf08c201"
+        };
+
+        // =======================================================================
+        // --- Global Config & State ---
+        // =======================================================================
+
+        let db, auth;
+        // ... existing code ... -->
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+
+        // --- Firebase Initialization ---
+
+        function initFirebase() {
+            try {
+                // Use the user's config from above
+                const firebaseConfig = userFirebaseConfig;
+                
+                // This app-id is now just for organizing data inside your project
+                const appId = 'default-parkour-app'; 
+
+                if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey.includes("PASTE_YOUR")) {
+                    console.error("Firebase config is missing or incomplete.");
+                    showMessage("Configuration Error", "The Firebase config is missing. Please edit the HTML file and paste your project's firebaseConfig object.");
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('debug'); // Enable detailed Firestore logging
+
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdInput.value = userId;
+                    } else {
+                        try {
+                            // Since we are on a public site, just sign in anonymously.
+                            await signInAnonymously(auth);
+                        } catch (error) {
+                            console.error("Authentication Error:", error);
+                            showMessage("Authentication Error", "Could not sign in to game service.");
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Init Error:", error);
+                showMessage("Error", "Failed to initialize game components.");
+            }
+        }
+
+        // --- UI & Modal Functions ---
+        // ... existing code ... -->
+        function showView(viewId) {
+        // ... existing code ... -->
+        }
+
+        function showMessage(title, message) {
+        // ... existing code ... -->
+        }
+
+        function hideMessage() {
+        // ... existing code ... -->
+        }
+
+        // --- Game Management ---
+        // ... existing code ... -->
+        function generateGameId() {
+        // ... existing code ... -->
+        }
+
+        function handleCreateGame() {
+        // ... existing code ... -->
+        }
+
+        function handleJoinGame() {
+        // ... existing code ... -->
+        }
+
+        function joinGame(gameId) {
+        // ... existing code ... -->
+            
+            loadLevel(currentLevel);
+            setupFirestoreListeners();
+            
+        // ... existing code ... -->
+        }
+
+        async function leaveGame() {
+        // ... existing code ... -->
+            // Delete player document from Firestore
+            if (currentGameId && userId) {
+                try {
+                    // This app-id is now just a folder name
+                    const appId = 'default-parkour-app';
+                    const playerRef = doc(db, `artifacts/${appId}/public/data/parkour-game/${currentGameId}/players`, userId);
+        // ... existing code ... -->
+                } catch (error) {
+        // ... existing code ... -->
+                }
+            }
+
+            // Stop game loop
+        // ... existing code ... -->
+            
+            currentGameId = null;
+        // ... existing code ... -->
+        }
+
+        // --- Firestore Real-time Logic ---
+
+        function setupFirestoreListeners() {
+        // ... existing code ... -->
+
+            const appId = 'default-parkour-app';
+            const gameRef = collection(db, `artifacts/${appId}/public/data/parkour-game/${currentGameId}/players`);
+            
+            const unsub = onSnapshot(gameRef, (snapshot) => {
+        // ... existing code ... -->
+                    // Filter out our own player and stale ghosts (older than 30s)
+                    if (id !== userId && (now - data.lastUpdate < 30000)) {
+        // ... existing code ... -->
+                    }
+                });
+                ghosts = newGhosts;
+        // ... existing code ... -->
+                leaveGame();
+            });
+
+            firestoreUnsubscribes.push(unsub);
+        }
+
+        async function updatePlayerPositionInFirestore() {
+        // ... existing code ... -->
+
+            try {
+                const appId = 'default-parkour-app';
+                const playerRef = doc(db, `artifacts/${appId}/public/data/parkour-game/${currentGameId}/players`, userId);
+                await setDoc(playerRef, {
+        // ... existing code ... -->
+                    color: player.color,
+                    lastUpdate: Date.now()
+                }, { merge: true }); // Use merge to not overwrite other fields if any
+        // ... existing code ... -->
+            }
+        }
+
+
+        // --- Level Generation ---
+        // ... existing code ... -->
+        function createPRNG(seed) {
+        // ... existing code ... -->
+        }
+
+        function generateLevel(levelNum) {
+        // ... existing code ... -->
+        }
+
+        function loadLevel(levelNum) {
+        // ... existing code ... -->
+        }
+
+        function resetCurrentLevel() {
+        // ... existing code ... -->
+        }
+
+        // --- Game Loop ---
+        // ... existing code ... -->
+        function gameLoop() {
+        // ... existing code ... -->
+        }
+
+        // --- Update Logic ---
+
+        function update() {
+        // ... existing code ... -->
+        }
+
+        // --- Drawing Logic ---
+
+        function draw() {
+        // ... existing code ... -->
+        }
+        
+        function drawHumanoid(x, y, color, isGhost) {
+        // ... existing code ... -->
+        }
+
+        // --- Utility Functions ---
+
+        function rectIntersect(r1, r2) {
+        // ... existing code ... -->
+        }
+        
+        function randomColor() {
+        // ... existing code ... -->
+        }
+
+        // --- Event Listeners ---
+        // ... existing code ... -->
+        window.addEventListener('keydown', (e) => {
+        // ... existing code ... -->
+        });
+
+        window.addEventListener('keyup', (e) => {
+        // ... existing code ... -->
+        });
+
+        createGameBtn.addEventListener('click', handleCreateGame);
+        // ... existing code ... -->
+        modalCloseBtn.addEventListener('click', hideMessage);
+
+        // --- Start ---
+        initFirebase();
+
+    </script>
+</body>
+</html>
+
+
